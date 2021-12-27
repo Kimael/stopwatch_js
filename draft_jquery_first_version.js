@@ -1,6 +1,8 @@
 import 'bootstrap@4.6.0'
 import $ from 'jquery'
 
+// From: https://playcode.io/new/
+
 console.log('App started')
 
 var upStart = Date.now();
