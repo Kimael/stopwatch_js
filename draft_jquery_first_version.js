@@ -1,6 +1,3 @@
-/*import 'bootstrap@4.6.0'
-import $ from 'jquery'*/
-
 // From: https://playcode.io/new/
 
 console.log('App started')
@@ -9,12 +6,16 @@ console.log('App started')
 const directionUp = 'directionUp';
 const directionDown = 'directionDown';
 const negativeAccumulationCoefficient = 2;
+const penaltySeparator = '----------------------------------------------------------------------------------\n';
 
 // VARs creation/initialization:
 var currentDirection;
 var upStart;
 var downStart;
 var accumulation = 0;
+var refreshAccumulationTimeout;
+var pauseAt;
+
 
 function resetHtml () {
   $('#up-time')
@@ -23,14 +24,17 @@ function resetHtml () {
     .html('DOWN TIME');
   $('#accumulation-text')
     .html('<i>No accumulation, yet.</i>');
+  $('#activity-log')
+    .val('\nLet\'s begin!'); // Also works: .html('Let\'s begin!');
 };
 resetHtml();
+
 
 // UP button definition:
 $('#up-start')
   .html('UP START')
   .on('click', () => {
-    console.log('-------------------');
+    console.log('\n-------------------');
     const now = Date.now();
     upStart = now;
     if (downStart != undefined) {
@@ -45,21 +49,38 @@ $('#up-start')
         } else {
           accumulation = negativeAccumulationCoefficient * rawNewAccumulation;
           console.log('OH! DOWN accumulation has become NEGATIVE ('+ rawNewAccumulation +') so we have applied the configured coefficient ['+ negativeAccumulationCoefficient +']: '+ accumulation);
+          
+          const activityLogMessage = 'You have been DOWN too much!\n  Applying penalty: replacing ['+ rawNewAccumulation +'] by ['+ accumulation +']!';
+          const newActivityLog = penaltySeparator + activityLogMessage +'\n'+ penaltySeparator;
+          appendActivityLog(newActivityLog);
         }
       } else {
         accumulation -= downFor;
       }
 
-      $('#down-time').html('Has been DOWN for ['+ downFor +' ms]');
+      const newDownTimeMessage = 'Has been DOWN for ['+ downFor +' ms]';
+      $('#down-time').html(newDownTimeMessage);
+      appendActivityLog(newDownTimeMessage +'\n');
+
       $('#accumulation-text').html('['+ accumulation +' ms] accumulated yet.');
     } else {
-      console.log('First (UP) start click ...');
+      $('#accumulation-refresh').prop('disabled', false);
+      $('#pause').prop('disabled', false);
+      $('#stop-reset').prop('disabled', false);
+
+      const logMessage = 'First (UP) start click ...';
+      console.log(logMessage);
+      appendActivityLog(logMessage);
+
+      refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
 
       $('#down-time').html('');
     }
-
-    console.log('  UP started at: '+ upStart)
     
+    const logMessage = '^   UP started at: '+ upStart;
+    console.log(logMessage);
+    appendActivityLog(logMessage);
+
     $('#up-time').html('Now running up...');
 
     $('#down-start').prop('disabled', false);
@@ -73,7 +94,7 @@ $('#up-start')
 $('#down-start')
   .html('DOWN START')
   .on('click', () => {
-    console.log('-------------------');
+    console.log('\n-------------------');
     const now = Date.now();
     downStart = now
     if (upStart != undefined) {
@@ -83,15 +104,28 @@ $('#down-start')
       console.log('  UP stopped after: '+ upFor);
       console.log('  UP accumulation: '+ accumulation);
 
-      $('#up-time').html('Has been UP for ['+ upFor +' ms]');
+      const newUpTimeMessage = 'Has been UP for ['+ upFor +' ms]';
+      $('#up-time').html(newUpTimeMessage);
+      appendActivityLog(newUpTimeMessage +'\n');
+
       $('#accumulation-text').html('['+ accumulation +' ms] accumulated yet.');
     } else {
-      console.log('First (DOWN) start click ...');
+      $('#accumulation-refresh').prop('disabled', false);
+      $('#pause').prop('disabled', false);
+      $('#stop-reset').prop('disabled', false);
+
+      const logMessage = 'First (DOWN) start click ...';
+      console.log(logMessage);
+      appendActivityLog(logMessage);
+
+      refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
 
       $('#up-time').html('');
     }
 
-    console.log('DOWN started at: '+ downStart);
+    const logMessage = 'v DOWN started at: '+ downStart;
+    console.log(logMessage);
+    appendActivityLog(logMessage);
 
     $('#down-time').html('... Now running down');
 
@@ -101,19 +135,28 @@ $('#down-start')
     currentDirection = directionDown;
   });
 
+function refreshAccumulationLoop () {
+  refreshAccumulation();
+  refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
+}
+
+function refreshAccumulation () {
+  console.log('\n----');
+  const refreshedAccumulation = calculateRefreshedAccumulation();
+  if (refreshedAccumulation != undefined) {
+    console.log('Refreshing with: '+ refreshedAccumulation);
+    $('#accumulation-text').html('['+ refreshedAccumulation +' ms] accumulated yet.');
+  } else {
+    console.log('Not refreshing (refreshed accumulation is undefined).');
+  }
+  console.log('----');
+}
+
 $('#accumulation-refresh')
+  .prop('disabled', true)
   .html('ACCUMULATION REFRESH')
-  .on('click', () => {
-    console.log('----');
-    const refreshedAccumulation = calculateRefreshedAccumulation();
-    if (refreshedAccumulation != undefined) {
-      console.log('Refreshing with: '+ refreshedAccumulation);
-      $('#accumulation-text').html('['+ refreshedAccumulation +' ms] accumulated yet.');
-    } else {
-      console.log('Not refreshing (refreshed accumulation is undefined).');
-    }
-    console.log('----');
-  });
+  .on('click', () => { refreshAccumulation(); } );
+
 
 function calculateRefreshedAccumulation () {
   if (currentDirection != undefined) {
@@ -146,17 +189,104 @@ function calculateRefreshedAccumulation () {
   }
 };
 
+
+$('#pause')
+  .prop('disabled', true)
+  .html('PAUSE')
+  .on('click', () => {
+    console.log('\n===================');
+    const now = Date.now();
+    const logMessage = '== PAUSE at: '+ now;
+    console.log(logMessage);
+    appendActivityLog(logMessage +'\n');
+
+    if (refreshAccumulationTimeout != undefined) {
+      clearTimeout(refreshAccumulationTimeout);
+    }
+    
+    pauseAt = now;
+
+    $('#resume').prop('disabled', false);
+    $('#accumulation-refresh').prop('disabled', true)
+    $('#pause').prop('disabled', true);
+    console.log('===================');
+  });
+
+$('#resume')
+  .prop('disabled', true)
+  .html('RESUME')
+  .on('click', () => {
+    console.log('\n===================');
+    const now = Date.now();
+    const logMessage = '>> RESUME at: '+ now;
+    console.log(logMessage);
+    appendActivityLog(logMessage +'\n');
+
+    if (currentDirection != undefined) {
+      var delta;
+      if (currentDirection == directionUp) {
+        const now = Date.now();
+        delta = pauseAt - now;
+      } else {
+        if (currentDirection == directionDown) {
+          const now = Date.now();
+          delta = now - pauseAt;
+        } else {
+          console.log('ERROR: unknown direction; unable to calculate a delta and resume!');
+        }
+      }
+    } else {
+      console.log('ERROR: no direction taken yet; unable to resume!');
+    }
+    pauseAt = undefined;
+
+    if (delta != undefined) {
+      const resumedAccumulation = accumulation + delta;
+      console.log('Paused accumulation was ['+ accumulation +']; resumed accumulation is ['+ resumedAccumulation +']; delta id ['+ delta +']');
+      accumulation = resumedAccumulation;
+    } else {
+      console.log('Not calculating (delta is undefined).');
+    }
+
+    refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
+
+    $('#pause').prop('disabled', false);
+    $('#accumulation-refresh').prop('disabled', false)
+    $('#resume').prop('disabled', true);
+    console.log('===================');
+  });
+
+
+function appendActivityLog (pActivityLog) {
+  const newActivityLogVal = pActivityLog +'\n'+ $('#activity-log').val();
+  $('#activity-log').val(newActivityLogVal);
+}
+
 $('#stop-reset')
+  .prop('disabled', true)
   .html('STOP and RESET')
   .on('click', () => {
-    console.log('XXXXXXXXXXXXXXXXXXX');
+    console.log('\nXXXXXXXXXXXXXXXXXXX');
+    
     resetHtml();
+    
     currentDirection = undefined;
     upStart = undefined;
     downStart = undefined;
     accumulation = 0;
+    pauseAt = undefined;
+
+    if (refreshAccumulationTimeout != undefined) {
+      clearTimeout(refreshAccumulationTimeout);
+    }
+
     $('#up-start').prop('disabled', false);
     $('#down-start').prop('disabled', false);
+    $('#accumulation-refresh').prop('disabled', true);
+    $('#pause').prop('disabled', true);
+    $('#resume').prop('disabled', true);
+    $('#stop-reset').prop('disabled', true);
+    
     console.log('STOP and RESET: done.');
     console.log('XXXXXXXXXXXXXXXXXXX');
   });
