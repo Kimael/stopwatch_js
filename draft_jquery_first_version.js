@@ -6,7 +6,7 @@ console.log('App started')
 const directionUp = 'directionUp';
 const directionDown = 'directionDown';
 
-const initialDownSpeed = 1.1; // 10% faster to go down than up.
+const initialDownSpeed = 1; // 1.1 = 10% faster to go down than up.
 
 const initialTooMuchDownPenaltyCoefficient = 2;
 const penaltySeparator = '----------------------------------------------------------------------------------\n';
@@ -21,6 +21,8 @@ const bonusUnit = 'minutes';
 const bonusUnitConversionFactor = 60000; // Converts typed minutes into (internaly used) miliseconds.
 const initialBonusValue = 1; // 1 minute.
 
+const refreshAccumulationTimeoutDuration = 1000; // ie: refresh accumulation description text every 1 second.
+
 // VARs creation/initialization:
 var currentDirection;
 var upStart;
@@ -28,6 +30,7 @@ var downStart;
 var accumulation = 0;
 var refreshAccumulationTimeout;
 var pauseAt;
+var pauseAccumulation = 0;
 
 
 function resetHtml () {
@@ -59,7 +62,7 @@ function resetHtml () {
     .attr('rows', 30) // HTML was: style='height: 50%;'
     .attr('cols', 80); // HTML was: style='width: 80%'
 };
-resetHtml();
+
 
 function enableElementsOnStart () {
   $('#bonus-add').prop('disabled', false);
@@ -67,35 +70,46 @@ function enableElementsOnStart () {
   $('#accumulation-refresh').prop('disabled', false);
   $('#pause').prop('disabled', false);
   $('#stop-reset').prop('disabled', false);
-}
+};
 
 
 function calculateRefreshedAccumulation () {
   if (currentDirection != undefined) {
-    var delta;
+    var deltaWithPauseAndSpeed;
     if (currentDirection == directionUp) {
       console.log('Refreshing UP ...');
       const now = Date.now();
-      delta = now - upStart;
+      var rawDelta = now - upStart; // Positive
+      var deltaWithPause = rawDelta - pauseAccumulation;
+      if (! isNaN(pauseAt) ) {
+        const currentPauseDelta = pauseAt - now; // Negative
+        deltaWithPause += currentPauseDelta;
+      }
+      deltaWithPauseAndSpeed = deltaWithPause; // No UP speed;
     } else {
       if (currentDirection == directionDown) {
         console.log('Refreshing DOWN ...');
         const now = Date.now();
-        const rawDelta = downStart - now;
+        const rawDelta = downStart - now; // Negative
+        var deltaWithPause = rawDelta - pauseAccumulation;
+        if (! isNaN(pauseAt) ) {
+          const currentPauseDelta = now - pauseAt; // Positive
+          deltaWithPause += currentPauseDelta;
+        }
 
         const downSpeed = $('#down-speed').val();
         if ( ( !isNaN(downSpeed) ) && (downSpeed > 0) ) {
-          delta = Math.trunc(rawDelta * downSpeed);
+          deltaWithPauseAndSpeed = roundTimeComponent(deltaWithPause * downSpeed);
         } else {
-          delta = rawDelta;
+          deltaWithPauseAndSpeed = deltaWithPause;
         }
       } else {
         console.log('Unknown direction! Unable to calculate a delta.');
       }
     }
     
-    if (delta != undefined) {
-      const refreshedAccumulation = accumulation + delta;
+    if (deltaWithPauseAndSpeed != undefined) {
+      const refreshedAccumulation = accumulation + deltaWithPauseAndSpeed;
       console.log('Refreshed accumulation is: '+ refreshedAccumulation);
       return refreshedAccumulation;
     } else {
@@ -115,16 +129,15 @@ function refreshAccumulation () {
   console.log('----');
 };
 
-
 function displayAccumulation (refreshedAccumulation) {
   if (refreshedAccumulation != undefined) {
     console.log('Refreshing with: '+ refreshedAccumulation);
 
     const absRefreshedAccumulation = Math.abs(refreshedAccumulation);
-    const absRefreshedInSeconds = Math.floor(Math.abs(refreshedAccumulation) / 1000);
+    const absRefreshedInSeconds = roundTimeComponent(Math.abs(refreshedAccumulation) / 1000);
 
-    const absRefreshedMinutes = Math.floor(absRefreshedAccumulation / 60000);
-    const absRefreshedRemainingSeconds = Math.floor(Math.abs(refreshedAccumulation % 60000) / 1000);
+    const absRefreshedMinutes = roundTimeComponent(absRefreshedAccumulation / 60000);
+    const absRefreshedRemainingSeconds = roundTimeComponent(Math.abs(refreshedAccumulation % 60000) / 1000);
 
     console.log('Absolute accumulation in seconds=['+ absRefreshedInSeconds +']: minutes=['+ absRefreshedMinutes +'], seconds=['+ absRefreshedRemainingSeconds +'].')
 
@@ -177,27 +190,38 @@ function displayAccumulation (refreshedAccumulation) {
 };
 
 
+function roundTimeComponent (timeComponent) {
+  // Choose betwwen: Math.trunc, Math.round, Math.floor and Math.ceil:
+  return Math.round(timeComponent);
+}
+
+
+// STARTING!
+resetHtml();
+
 // UP button definition:
 $('#up-start')
   .html('UP START')
   .on('click', () => {
+    $('#up-start').prop('disabled', true);
+
     console.log('\n-------------------');
     const now = Date.now();
     upStart = now;
     if (downStart != undefined) {
-      const rawDownFor = now - downStart;
+      const rawDownFor = now - downStart; // Positive
       console.log('DOWN stopped after: '+ rawDownFor);
 
       const downSpeed = $('#down-speed').val();
       if ( ( !isNaN(downSpeed) ) && (downSpeed > 0) ) {
-        downFor = Math.trunc(rawDownFor * downSpeed);
+        downFor = roundTimeComponent(rawDownFor * downSpeed);
       } else {
         downFor = rawDownFor;
       }
 
       const tooMuchDownPenaltyCoefficient = $('#too-much-down-penalty-coefficient').val();
       if ( ( !isNaN(tooMuchDownPenaltyCoefficient) ) && (tooMuchDownPenaltyCoefficient >= 1) ) {
-        const rawNewAccumulation = accumulation - downFor;
+        const rawNewAccumulation = accumulation - downFor + pauseAccumulation;
         console.log('DOWN RAW new accumulation: '+ rawNewAccumulation);
         if (rawNewAccumulation >= 0) {
           accumulation = rawNewAccumulation;
@@ -211,7 +235,8 @@ $('#up-start')
           appendActivityLog(newActivityLog);
         }
       } else {
-        accumulation -= downFor;
+        accumulation -= downFor + pauseAccumulation;
+        pauseAccumulation = 0;
       }
 
       const newDownTimeMessage = 'Has been DOWN for ['+ downFor +' ms]';
@@ -226,7 +251,7 @@ $('#up-start')
       console.log(logMessage);
       appendActivityLog(logMessage);
 
-      refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
+      refreshAccumulationLoop();
 
       $('#down-time').html('');
     }
@@ -238,7 +263,6 @@ $('#up-start')
     $('#up-time').html('Now running up...');
 
     $('#down-start').prop('disabled', false);
-    $('#up-start').prop('disabled', true);
 
     currentDirection = directionUp;
   });
@@ -248,12 +272,15 @@ $('#up-start')
 $('#down-start')
   .html('DOWN START')
   .on('click', () => {
+    $('#down-start').prop('disabled', true);
+
     console.log('\n-------------------');
     const now = Date.now();
     downStart = now
     if (upStart != undefined) {
-      const upFor = now - upStart;
-      accumulation += upFor;
+      const upFor = now - upStart; // Positive
+      accumulation += upFor + pauseAccumulation;
+      pauseAccumulation = 0;
 
       console.log('  UP stopped after: '+ upFor);
       console.log('  UP accumulation: '+ accumulation);
@@ -270,7 +297,7 @@ $('#down-start')
       console.log(logMessage);
       appendActivityLog(logMessage);
 
-      refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
+      refreshAccumulationLoop();
 
       $('#up-time').html('');
     }
@@ -282,7 +309,6 @@ $('#down-start')
     $('#down-time').html('... Now running down');
 
     $('#up-start').prop('disabled', false);
-    $('#down-start').prop('disabled', true);
 
     currentDirection = directionDown;
   });
@@ -290,7 +316,7 @@ $('#down-start')
 
 function refreshAccumulationLoop () {
   refreshAccumulation();
-  refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
+  refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, refreshAccumulationTimeoutDuration);
 }
 
 
@@ -304,7 +330,6 @@ $('#accumulation-refresh')
 
 
 $('#bonus-add')
-  .prop('disabled', true)
   .html('ADD BONUS')
   .on('click', () => {
     const typedBonusValue = $('#bonus-value').val();
@@ -315,15 +340,14 @@ $('#bonus-add')
     } else {
       if (typedBonusValue > 0) {
         const internalBonusValue = typedBonusValue * bonusUnitConversionFactor;
-        const newAccumulation = accumulation + internalBonusValue;
+        const oldAccumulation = accumulation;
+        accumulation += internalBonusValue; // + pauseAccumulation;
 
-        const logMessage = 'Typed bonus value ['+ typedBonusValue +'] is a valid number; adding internal bonus ['+ internalBonusValue +']: moving accumulation from ['+ accumulation +'] to ['+ newAccumulation +'].';
+        const logMessage = 'Typed bonus value ['+ typedBonusValue +'] is a valid number; adding internal bonus ['+ internalBonusValue +']: moving accumulation from ['+ oldAccumulation +'] to ['+ accumulation +'].';
         console.log(logMessage);
 
         const activityLog = '^^ Adding a bonus of '+ typedBonusValue +' '+ bonusUnit +'.';
         appendActivityLog(activityLog +'\n');
-
-        accumulation = newAccumulation;
         
         refreshAccumulation();
       } else {
@@ -336,7 +360,6 @@ $('#bonus-add')
 
 
 $('#malus-add')
-  .prop('disabled', true)
   .html('REMOVE MALUS')
   .on('click', () => {
     const typedMalusValue = $('#malus-value').val();
@@ -347,15 +370,14 @@ $('#malus-add')
     } else {
       if (typedMalusValue > 0) {
         const internalMalusValue = typedMalusValue * malusUnitConversionFactor;
-        const newAccumulation = accumulation - internalMalusValue;
+        const oldAccumulation = accumulation;
+        accumulation -= internalMalusValue; // - pauseAccumulation;
 
-        const logMessage = 'Typed malus value ['+ typedMalusValue +'] is a valid number; adding internal malus ['+ internalMalusValue +']: moving accumulation from ['+ accumulation +'] to ['+ newAccumulation +'].';
+        const logMessage = 'Typed malus value ['+ typedMalusValue +'] is a valid number; adding internal malus ['+ internalMalusValue +']: moving accumulation from ['+ oldAccumulation +'] to ['+ accumulation +'].';
         console.log(logMessage);
 
         const activityLog = 'VV Removing a malus of '+ typedMalusValue +' '+ malusUnit +'.';
         appendActivityLog(activityLog +'\n');
-
-        accumulation = newAccumulation;
         
         refreshAccumulation();
       } else {
@@ -371,6 +393,11 @@ $('#pause')
   .prop('disabled', true)
   .html('PAUSE')
   .on('click', () => {
+    $('#pause').prop('disabled', true);
+    $('#up-start').prop('disabled', true);
+    $('#down-start').prop('disabled', true);
+    $('#accumulation-refresh').prop('disabled', true)
+
     console.log('\n===================');
     const now = Date.now();
     const logMessage = '== PAUSE at: '+ now;
@@ -386,15 +413,16 @@ $('#pause')
     $('#resume').prop('disabled', false);
     $('#bonus-add').prop('disabled', false);
     $('#malus-add').prop('disabled', false);
-    $('#accumulation-refresh').prop('disabled', true)
-    $('#pause').prop('disabled', true);
     console.log('===================');
   });
+
 
 $('#resume')
   .prop('disabled', true)
   .html('RESUME')
   .on('click', () => {
+    $('#resume').prop('disabled', true);
+
     console.log('\n===================');
     const now = Date.now();
     const logMessage = '>> RESUME at: '+ now;
@@ -405,11 +433,11 @@ $('#resume')
       var delta;
       if (currentDirection == directionUp) {
         const now = Date.now();
-        delta = pauseAt - now;
+        delta = pauseAt - now; // Negative
       } else {
         if (currentDirection == directionDown) {
           const now = Date.now();
-          delta = now - pauseAt;
+          delta = now - pauseAt; // Positive
         } else {
           console.log('ERROR: unknown direction; unable to calculate a delta and resume!');
         }
@@ -419,20 +447,32 @@ $('#resume')
     }
     pauseAt = undefined;
 
+    /* With 'pauseAccumulation' usage: */
     if (delta != undefined) {
-      const resumedAccumulation = accumulation + delta;
-      console.log('Paused accumulation was ['+ accumulation +']; resumed accumulation is ['+ resumedAccumulation +']; delta id ['+ delta +']');
-      accumulation = resumedAccumulation;
+      const oldPauseAccumulation = pauseAccumulation;
+      pauseAccumulation -= delta;
+      console.log('Pause accumulation moves from ['+ oldPauseAccumulation +'] to ['+ pauseAccumulation +']. Delta is ['+ delta +'].');
     } else {
-      console.log('Not calculating (delta is undefined).');
+      console.log('Not calculating pause accumulation, as delta is undefined!');
     }
 
-    refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
+    refreshAccumulationLoop();
 
     enableElementsOnStart();
 
-    $('#resume').prop('disabled', true);
-
+    if (currentDirection != undefined) {
+      if (currentDirection == directionUp) {
+        $('#down-start').prop('disabled', false);
+      } else {
+        if (currentDirection == directionDown) {
+          $('#up-start').prop('disabled', false);
+        } else {
+          console.log('Unknown direction! Unable to enable any "START" button.');
+        }
+      }
+    } else {
+      console.log('No direction taken yet! Unable to enable any "START" button.');
+    }
     console.log('===================');
   });
 
@@ -446,6 +486,13 @@ $('#stop-reset')
   .prop('disabled', true)
   .html('STOP and RESET')
   .on('click', () => {
+    $('#stop-reset').prop('disabled', true);
+    //You can add a bonus before you start: $('#bonus-add').prop('disabled', true);
+    //You can add a malus before you start: $('#malus-add').prop('disabled', true);
+    $('#accumulation-refresh').prop('disabled', true);
+    $('#pause').prop('disabled', true);
+    $('#resume').prop('disabled', true);
+
     console.log('\nXXXXXXXXXXXXXXXXXXX');
     
     resetHtml();
@@ -455,6 +502,7 @@ $('#stop-reset')
     downStart = undefined;
     accumulation = 0;
     pauseAt = undefined;
+    pauseAccumulation = 0;
 
     if (refreshAccumulationTimeout != undefined) {
       clearTimeout(refreshAccumulationTimeout);
@@ -462,13 +510,7 @@ $('#stop-reset')
 
     $('#up-start').prop('disabled', false);
     $('#down-start').prop('disabled', false);
-    $('#bonus-add').prop('disabled', true);
-    $('#malus-add').prop('disabled', true);
-    $('#accumulation-refresh').prop('disabled', true);
-    $('#pause').prop('disabled', true);
-    $('#resume').prop('disabled', true);
-    $('#stop-reset').prop('disabled', true);
-    
+
     console.log('STOP and RESET: done.');
     console.log('XXXXXXXXXXXXXXXXXXX');
   });
