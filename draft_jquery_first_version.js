@@ -114,11 +114,11 @@ function calculateRefreshedAccumulation () {
       return refreshedAccumulation;
     } else {
       console.log('Not calculating (delta is undefined).');
-      return undefined;
+      return accumulation;
     }
   } else {
     console.log('No direction taken yet; nothing to calculate.');
-    return undefined;
+    return accumulation;
   }
 };
 
@@ -350,6 +350,8 @@ $('#bonus-add')
         appendActivityLog(activityLog +'\n');
         
         refreshAccumulation();
+
+        $('#stop-reset').prop('disabled', false);
       } else {
         const logMessage = '! Typed bonus value ['+ typedBonusValue +'] is NOT a valid number; NOT adding it!';
         console.log(logMessage);
@@ -380,6 +382,8 @@ $('#malus-add')
         appendActivityLog(activityLog +'\n');
         
         refreshAccumulation();
+
+        $('#stop-reset').prop('disabled', false);
       } else {
         const logMessage = '! Typed malus value ['+ typedMalusValue +'] is NOT a valid number; NOT adding it!';
         console.log(logMessage);
