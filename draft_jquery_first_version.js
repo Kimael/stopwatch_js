@@ -5,7 +5,10 @@ console.log('App started')
 // CONST
 const directionUp = 'directionUp';
 const directionDown = 'directionDown';
-const negativeAccumulationCoefficient = 2;
+
+const initialDownSpeed = 1.1; // 10% faster to go down than up.
+
+const initialTooMuchDownPenaltyCoefficient = 2;
 const penaltySeparator = '----------------------------------------------------------------------------------\n';
 
 // You should adapt these 2 consts accordingly:
@@ -28,6 +31,11 @@ var pauseAt;
 
 
 function resetHtml () {
+  $('#down-speed')
+    .val(initialDownSpeed);
+  $('#too-much-down-penalty-coefficient')
+    .val(initialTooMuchDownPenaltyCoefficient);
+
   $('#up-time')
     .html('UP TIME -');
   $('#down-time')
@@ -73,7 +81,14 @@ function calculateRefreshedAccumulation () {
       if (currentDirection == directionDown) {
         console.log('Refreshing DOWN ...');
         const now = Date.now();
-        delta = downStart - now;
+        const rawDelta = downStart - now;
+
+        const downSpeed = $('#down-speed').val();
+        if ( ( !isNaN(downSpeed) ) && (downSpeed > 0) ) {
+          delta = Math.trunc(rawDelta * downSpeed);
+        } else {
+          delta = rawDelta;
+        }
       } else {
         console.log('Unknown direction! Unable to calculate a delta.');
       }
@@ -170,17 +185,26 @@ $('#up-start')
     const now = Date.now();
     upStart = now;
     if (downStart != undefined) {
-      const downFor = now - downStart;
-      console.log('DOWN stopped after: '+ downFor);
-      if ( (negativeAccumulationCoefficient != undefined) && (negativeAccumulationCoefficient != 1) ) {
+      const rawDownFor = now - downStart;
+      console.log('DOWN stopped after: '+ rawDownFor);
+
+      const downSpeed = $('#down-speed').val();
+      if ( ( !isNaN(downSpeed) ) && (downSpeed > 0) ) {
+        downFor = Math.trunc(rawDownFor * downSpeed);
+      } else {
+        downFor = rawDownFor;
+      }
+
+      const tooMuchDownPenaltyCoefficient = $('#too-much-down-penalty-coefficient').val();
+      if ( ( !isNaN(tooMuchDownPenaltyCoefficient) ) && (tooMuchDownPenaltyCoefficient >= 1) ) {
         const rawNewAccumulation = accumulation - downFor;
         console.log('DOWN RAW new accumulation: '+ rawNewAccumulation);
         if (rawNewAccumulation >= 0) {
           accumulation = rawNewAccumulation;
           console.log('OK: DOWN accumulation is still positive: '+ accumulation);
         } else {
-          accumulation = negativeAccumulationCoefficient * rawNewAccumulation;
-          console.log('OH! DOWN accumulation has become NEGATIVE ('+ rawNewAccumulation +') so we have applied the configured coefficient ['+ negativeAccumulationCoefficient +']: '+ accumulation);
+          accumulation = tooMuchDownPenaltyCoefficient * rawNewAccumulation;
+          console.log('OH! DOWN accumulation has become NEGATIVE ('+ rawNewAccumulation +') so we have applied the configured coefficient ['+ tooMuchDownPenaltyCoefficient +']: '+ accumulation);
           
           const activityLogMessage = 'You have been DOWN too much!\n  Applying penalty: replacing ['+ rawNewAccumulation +'] by ['+ accumulation +']!';
           const newActivityLog = penaltySeparator + activityLogMessage +'\n'+ penaltySeparator;
