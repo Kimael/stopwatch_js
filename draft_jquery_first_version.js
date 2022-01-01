@@ -8,6 +8,16 @@ const directionDown = 'directionDown';
 const negativeAccumulationCoefficient = 2;
 const penaltySeparator = '----------------------------------------------------------------------------------\n';
 
+// You should adapt these 2 consts accordingly:
+const malusUnit = 'minutes';
+const malusUnitConversionFactor = 60000; // Converts typed minutes into (internaly used) miliseconds.
+const initialMalusValue = 5; // 5 minutes.
+
+// You should adapt these 2 consts accordingly:
+const bonusUnit = 'minutes';
+const bonusUnitConversionFactor = 60000; // Converts typed minutes into (internaly used) miliseconds.
+const initialBonusValue = 1; // 1 minute.
+
 // VARs creation/initialization:
 var currentDirection;
 var upStart;
@@ -22,12 +32,134 @@ function resetHtml () {
     .html('UP TIME -');
   $('#down-time')
     .html('DOWN TIME');
+
+  $('#bonus-value-label')
+    .html('Up bonus ('+ bonusUnit +'): ');
+  $('#bonus-value')
+    .val(initialBonusValue);
+
+  $('#malus-value-label')
+    .html('Down malus ('+ malusUnit +'): ');
+  $('#malus-value')
+    .val(initialMalusValue);
+  
   $('#accumulation-text')
     .html('<i>No accumulation, yet.</i>');
+  
   $('#activity-log')
-    .val('\nLet\'s begin!'); // Also works: .html('Let\'s begin!');
+    .val('\nLet\'s begin!') // Also works: .html('Let\'s begin!');
+    .attr('rows', 30) // HTML was: style='height: 50%;'
+    .attr('cols', 80); // HTML was: style='width: 80%'
 };
 resetHtml();
+
+function enableElementsOnStart () {
+  $('#bonus-add').prop('disabled', false);
+  $('#malus-add').prop('disabled', false);
+  $('#accumulation-refresh').prop('disabled', false);
+  $('#pause').prop('disabled', false);
+  $('#stop-reset').prop('disabled', false);
+}
+
+
+function calculateRefreshedAccumulation () {
+  if (currentDirection != undefined) {
+    var delta;
+    if (currentDirection == directionUp) {
+      console.log('Refreshing UP ...');
+      const now = Date.now();
+      delta = now - upStart;
+    } else {
+      if (currentDirection == directionDown) {
+        console.log('Refreshing DOWN ...');
+        const now = Date.now();
+        delta = downStart - now;
+      } else {
+        console.log('Unknown direction! Unable to calculate a delta.');
+      }
+    }
+    
+    if (delta != undefined) {
+      const refreshedAccumulation = accumulation + delta;
+      console.log('Refreshed accumulation is: '+ refreshedAccumulation);
+      return refreshedAccumulation;
+    } else {
+      console.log('Not calculating (delta is undefined).');
+      return undefined;
+    }
+  } else {
+    console.log('No direction taken yet; nothing to calculate.');
+    return undefined;
+  }
+};
+
+function refreshAccumulation () {
+  console.log('\n----');
+  const refreshedAccumulation = calculateRefreshedAccumulation();
+  displayAccumulation(refreshedAccumulation);
+  console.log('----');
+};
+
+
+function displayAccumulation (refreshedAccumulation) {
+  if (refreshedAccumulation != undefined) {
+    console.log('Refreshing with: '+ refreshedAccumulation);
+
+    const absRefreshedAccumulation = Math.abs(refreshedAccumulation);
+    const absRefreshedInSeconds = Math.floor(Math.abs(refreshedAccumulation) / 1000);
+
+    const absRefreshedMinutes = Math.floor(absRefreshedAccumulation / 60000);
+    const absRefreshedRemainingSeconds = Math.floor(Math.abs(refreshedAccumulation % 60000) / 1000);
+
+    console.log('Absolute accumulation in seconds=['+ absRefreshedInSeconds +']: minutes=['+ absRefreshedMinutes +'], seconds=['+ absRefreshedRemainingSeconds +'].')
+
+    var newAccumulationHtml = '';
+
+    if (refreshedAccumulation < 0) {
+      if (absRefreshedInSeconds >= 1) {
+        newAccumulationHtml += '<span style="color: red"><strong>-</strong> ';
+      }
+    }
+
+    if (absRefreshedInSeconds < 1) {
+      newAccumulationHtml += '<i>Not much accumulated.</i>';
+    } else {
+      if (absRefreshedMinutes > 0) {
+        if (refreshedAccumulation > 0) {
+          newAccumulationHtml += '<span style="color: green">';
+        }
+        newAccumulationHtml += absRefreshedMinutes +' minute';
+        
+        if (absRefreshedMinutes > 1) {
+          newAccumulationHtml += 's';
+        }
+        if (refreshedAccumulation > 0) {
+          newAccumulationHtml += '</span>';
+        }
+        
+        if (absRefreshedRemainingSeconds > 0) {
+          newAccumulationHtml += ' and ';
+        }
+      }
+
+      if (absRefreshedRemainingSeconds > 0) {
+        newAccumulationHtml += absRefreshedRemainingSeconds +' second';
+        if (absRefreshedRemainingSeconds > 1) {
+          newAccumulationHtml += 's';
+        }
+      }
+      
+      newAccumulationHtml += ' accumulated.';
+      if (refreshedAccumulation < 0) {
+        newAccumulationHtml += '</span>';
+      }
+    }
+    
+    $('#accumulation-text').html(newAccumulationHtml);
+  } else {
+    console.log('Not refreshing (refreshed accumulation is undefined).');
+  }
+};
 
 
 // UP button definition:
@@ -62,11 +194,9 @@ $('#up-start')
       $('#down-time').html(newDownTimeMessage);
       appendActivityLog(newDownTimeMessage +'\n');
 
-      $('#accumulation-text').html('['+ accumulation +' ms] accumulated yet.');
+      displayAccumulation(accumulation);
     } else {
-      $('#accumulation-refresh').prop('disabled', false);
-      $('#pause').prop('disabled', false);
-      $('#stop-reset').prop('disabled', false);
+      enableElementsOnStart();
 
       const logMessage = 'First (UP) start click ...';
       console.log(logMessage);
@@ -108,11 +238,9 @@ $('#down-start')
       $('#up-time').html(newUpTimeMessage);
       appendActivityLog(newUpTimeMessage +'\n');
 
-      $('#accumulation-text').html('['+ accumulation +' ms] accumulated yet.');
+      displayAccumulation(accumulation);
     } else {
-      $('#accumulation-refresh').prop('disabled', false);
-      $('#pause').prop('disabled', false);
-      $('#stop-reset').prop('disabled', false);
+      enableElementsOnStart();
 
       const logMessage = 'First (DOWN) start click ...';
       console.log(logMessage);
@@ -135,59 +263,84 @@ $('#down-start')
     currentDirection = directionDown;
   });
 
+
 function refreshAccumulationLoop () {
   refreshAccumulation();
   refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
 }
 
-function refreshAccumulation () {
-  console.log('\n----');
-  const refreshedAccumulation = calculateRefreshedAccumulation();
-  if (refreshedAccumulation != undefined) {
-    console.log('Refreshing with: '+ refreshedAccumulation);
-    $('#accumulation-text').html('['+ refreshedAccumulation +' ms] accumulated yet.');
-  } else {
-    console.log('Not refreshing (refreshed accumulation is undefined).');
-  }
-  console.log('----');
-}
+
 
 $('#accumulation-refresh')
   .prop('disabled', true)
   .html('ACCUMULATION REFRESH')
-  .on('click', () => { refreshAccumulation(); } );
+  .on('click', () => { 
+    refreshAccumulation();
+  });
 
 
-function calculateRefreshedAccumulation () {
-  if (currentDirection != undefined) {
-    var delta;
-    if (currentDirection == directionUp) {
-      console.log('Refreshing UP ...');
-      const now = Date.now();
-      delta = now - upStart;
+$('#bonus-add')
+  .prop('disabled', true)
+  .html('ADD BONUS')
+  .on('click', () => {
+    const typedBonusValue = $('#bonus-value').val();
+    if (isNaN(typedBonusValue)) {
+      const logMessage = '!! Typed bonus value is NOT a number; unable to add it!';
+      console.log(logMessage);
+      appendActivityLog(logMessage +'\n');
     } else {
-      if (currentDirection == directionDown) {
-        console.log('Refreshing DOWN ...');
-        const now = Date.now();
-        delta = downStart - now;
+      if (typedBonusValue > 0) {
+        const internalBonusValue = typedBonusValue * bonusUnitConversionFactor;
+        const newAccumulation = accumulation + internalBonusValue;
+
+        const logMessage = 'Typed bonus value ['+ typedBonusValue +'] is a valid number; adding internal bonus ['+ internalBonusValue +']: moving accumulation from ['+ accumulation +'] to ['+ newAccumulation +'].';
+        console.log(logMessage);
+
+        const activityLog = '^^ Adding a bonus of '+ typedBonusValue +' '+ bonusUnit +'.';
+        appendActivityLog(activityLog +'\n');
+
+        accumulation = newAccumulation;
+        
+        refreshAccumulation();
       } else {
-        console.log('Unknown direction! Unable to calculate a delta.');
+        const logMessage = '! Typed bonus value ['+ typedBonusValue +'] is NOT a valid number; NOT adding it!';
+        console.log(logMessage);
+        appendActivityLog(logMessage +'\n');
       }
     }
-    
-    if (delta != undefined) {
-      const refreshedAccumulation = accumulation + delta;
-      console.log('Refreshed accumulation is: '+ refreshedAccumulation);
-      return refreshedAccumulation;
+  });
+
+
+$('#malus-add')
+  .prop('disabled', true)
+  .html('REMOVE MALUS')
+  .on('click', () => {
+    const typedMalusValue = $('#malus-value').val();
+    if (isNaN(typedMalusValue)) {
+      const logMessage = '!! Typed malus value is NOT a number; unable to add it!';
+      console.log(logMessage);
+      appendActivityLog(logMessage +'\n');
     } else {
-      console.log('Not calculating (delta is undefined).');
-      return undefined;
+      if (typedMalusValue > 0) {
+        const internalMalusValue = typedMalusValue * malusUnitConversionFactor;
+        const newAccumulation = accumulation - internalMalusValue;
+
+        const logMessage = 'Typed malus value ['+ typedMalusValue +'] is a valid number; adding internal malus ['+ internalMalusValue +']: moving accumulation from ['+ accumulation +'] to ['+ newAccumulation +'].';
+        console.log(logMessage);
+
+        const activityLog = 'VV Removing a malus of '+ typedMalusValue +' '+ malusUnit +'.';
+        appendActivityLog(activityLog +'\n');
+
+        accumulation = newAccumulation;
+        
+        refreshAccumulation();
+      } else {
+        const logMessage = '! Typed malus value ['+ typedMalusValue +'] is NOT a valid number; NOT adding it!';
+        console.log(logMessage);
+        appendActivityLog(logMessage +'\n');
+      }
     }
-  } else {
-    console.log('No direction taken yet; nothing to calculate.');
-    return undefined;
-  }
-};
+  });
 
 
 $('#pause')
@@ -207,6 +360,8 @@ $('#pause')
     pauseAt = now;
 
     $('#resume').prop('disabled', false);
+    $('#bonus-add').prop('disabled', false);
+    $('#malus-add').prop('disabled', false);
     $('#accumulation-refresh').prop('disabled', true)
     $('#pause').prop('disabled', true);
     console.log('===================');
@@ -250,9 +405,10 @@ $('#resume')
 
     refreshAccumulationTimeout = setTimeout(refreshAccumulationLoop, 2000);
 
-    $('#pause').prop('disabled', false);
-    $('#accumulation-refresh').prop('disabled', false)
+    enableElementsOnStart();
+
     $('#resume').prop('disabled', true);
+
     console.log('===================');
   });
 
@@ -282,6 +438,8 @@ $('#stop-reset')
 
     $('#up-start').prop('disabled', false);
     $('#down-start').prop('disabled', false);
+    $('#bonus-add').prop('disabled', true);
+    $('#malus-add').prop('disabled', true);
     $('#accumulation-refresh').prop('disabled', true);
     $('#pause').prop('disabled', true);
     $('#resume').prop('disabled', true);

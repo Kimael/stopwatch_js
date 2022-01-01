@@ -14,6 +14,18 @@
   <body>
 
     <div class='d-flex h-100'>
+      <label for='down-speed'>Down speed: </label>
+      <input type='text' id='down-speed' />
+
+      <br />
+
+      <label for='too-much-down-penalty'>Penalty for going down too much: </label>
+      <input type='text' id='too-much-down-penalty' />
+    </div>
+    
+    <br />
+
+    <div class='d-flex h-100'>
       <button id='up-start' class='btn btn-warning m-auto'>
         Hi! Click me
       </button>
@@ -33,6 +45,26 @@
       </button>
 
       <span id='accumulation-text'></span>
+    </div>
+
+    <br />
+
+    <div class='d-flex h-100'>
+      <label id='bonus-value-label' for='bonus-value'></label>
+      <input type='text' id='bonus-value' />
+
+      <button id='bonus-add' class="btn btn-warning m-auto">
+        Hi! Click me
+      </button>
+
+      <br />
+
+      <label id='malus-value-label' for='malus-value'></label>
+      <input type='text' id='malus-value' />
+
+      <button id='malus-add' class="btn btn-warning m-auto">
+        Hi! Click me
+      </button>
     </div>
 
     <br />
@@ -60,6 +92,10 @@
         Hi! Click me
       </button>
     </div>
+    
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Loading all the JS: -->
     
     <script type='text/javascript' src='https://code.jquery.com/jquery-3.6.0.js'></script>
 
