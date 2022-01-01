@@ -45,12 +45,12 @@ function resetHtml () {
     .html('DOWN TIME');
 
   $('#bonus-value-label')
-    .html('Up bonus ('+ bonusUnit +'): ');
+    .html(bonusUnit);
   $('#bonus-value')
     .val(initialBonusValue);
 
   $('#malus-value-label')
-    .html('Down malus ('+ malusUnit +'): ');
+    .html(malusUnit);
   $('#malus-value')
     .val(initialMalusValue);
   
@@ -260,9 +260,11 @@ $('#up-start')
     console.log(logMessage);
     appendActivityLog(logMessage);
 
-    $('#up-time').html('Now running up...');
+    $('#up-time')
+      .html('<strong>Now running up ...</strong>');
 
-    $('#down-start').prop('disabled', false);
+    $('#down-start')
+      .prop('disabled', false);
 
     currentDirection = directionUp;
   });
@@ -306,9 +308,11 @@ $('#down-start')
     console.log(logMessage);
     appendActivityLog(logMessage);
 
-    $('#down-time').html('... Now running down');
+    $('#down-time')
+      .html('<strong>... Now running down</strong>');
 
-    $('#up-start').prop('disabled', false);
+    $('#up-start')
+      .prop('disabled', false);
 
     currentDirection = directionDown;
   });
