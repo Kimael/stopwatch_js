@@ -495,6 +495,28 @@ $('#stop-reset')
   .html('STOP and RESET')
   .on('click', () => {
     $('#stop-reset').prop('disabled', true);
+
+    $('#stop-reset-abort').prop('disabled', false);
+    $('#stop-reset-confirm').prop('disabled', false);
+  });
+
+$('#stop-reset-abort')
+  .prop('disabled', true)
+  .html('ABORT STOP and RESET')
+  .on('click', () => {
+    $('#stop-reset-abort').prop('disabled', true);
+    $('#stop-reset-confirm').prop('disabled', true);
+    
+    $('#stop-reset').prop('disabled', false);
+  });
+
+$('#stop-reset-confirm')
+  .prop('disabled', true)
+  .html('CONFIRM STOP and RESET')
+  .on('click', () => {
+    $('#stop-reset-confirm').prop('disabled', true);
+    $('#stop-reset-abort').prop('disabled', true);
+
     //You can add a bonus before you start: $('#bonus-add').prop('disabled', true);
     //You can add a malus before you start: $('#malus-add').prop('disabled', true);
     $('#accumulation-refresh').prop('disabled', true);
@@ -522,3 +544,5 @@ $('#stop-reset')
     console.log('STOP and RESET: done.');
     console.log('XXXXXXXXXXXXXXXXXXX');
   });
+
+  
