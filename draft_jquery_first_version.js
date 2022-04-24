@@ -345,7 +345,8 @@ function displayAccumulation (pRefreshedAccumulation) {
 
 function roundTimeComponent (pTimeComponent) {
   // Choose betwwen: Math.trunc, Math.round, Math.floor and Math.ceil:
-  return Math.round(pTimeComponent);
+  //return Math.round(pTimeComponent);
+  return Math.trunc(pTimeComponent);
 }
 
 
